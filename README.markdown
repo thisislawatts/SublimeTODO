@@ -79,6 +79,17 @@ To add file excludes, add glob patterns to `file_exclude_patterns`:
 ]
 ```
 
+## Included files and folders
+
+To search directories when running with the "Specified folders only" command, add directory names (not glob patterns or regexes) to `folder_include_patterns` in todo settings:
+
+```javascript
+"todo": {
+    "folder_include_patterns": [
+        "src/javascript"
+    ]
+}
+```
 
 ## Results title
 
@@ -92,7 +103,8 @@ Override the results view title by setting `result_title`
 
 `Show TODOs: Project and open files` scans all files in your project
 `Show TODOs: Open files only` scans only open, saved files
-Both are triggered from the command palette. No default key bindings are provided.
+`Show TODOs: Specified files only` scans only specified directories from your settings
+All three are triggered from the command palette. No default key bindings are provided.
 
 ## Navigating results
 

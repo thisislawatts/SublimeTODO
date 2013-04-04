@@ -323,20 +323,30 @@ class FileScanCounter(object):
 
 class TodoCommand(sublime_plugin.TextCommand):
 
-    def search_paths(self, window, open_files_only=False):
+    def search_paths(self, window, open_files_only=False, included_dirs_only=False):
         """Return (filepaths, dirpaths)"""
-        return (
-            [view.file_name() for view in window.views() if view.file_name()], 
-            window.folders() if not open_files_only else []
-        )
+        if included_dirs_only:
+            window = self.view.window()
+            settings = Settings(self.view.settings().get('todo', {}))
+            included_dirs = settings.get('folder_include_patterns', []);
+            global_settings = sublime.load_settings('Global.sublime-settings')
+            included_dirs.extend(global_settings.get('folder_include_patterns', []))
+            return (
+                [], included_dirs
+            )
+        else:
+            return (
+                [view.file_name() for view in window.views() if view.file_name()],
+                window.folders() if not open_files_only else []
+            )
 
-    def run(self, edit, open_files_only=False):
+    def run(self, edit, open_files_only=False, included_dirs_only=False):
         window = self.view.window()
         settings = Settings(self.view.settings().get('todo', {}))
 
 
         ## TODO: Cleanup this init code. Maybe move it to the settings object
-        filepaths, dirpaths = self.search_paths(window, open_files_only=open_files_only)
+        filepaths, dirpaths = self.search_paths(window, open_files_only=open_files_only, included_dirs_only=included_dirs_only)
 
         ignored_dirs = settings.get('folder_exclude_patterns', [])
         ## Get exclude patterns from global settings
@@ -350,7 +360,7 @@ class TodoCommand(sublime_plugin.TextCommand):
         exclude_file_patterns = [fnmatch.translate(patt) for patt in exclude_file_patterns]
 
         file_counter = FileScanCounter()
-        extractor = TodoExtractor(settings, filepaths, dirpaths, ignored_dirs, 
+        extractor = TodoExtractor(settings, filepaths, dirpaths, ignored_dirs,
                                   exclude_file_patterns, file_counter)
         renderer = TodoRenderer(settings, window, file_counter)
 
