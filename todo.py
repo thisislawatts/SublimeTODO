@@ -323,20 +323,26 @@ class FileScanCounter(object):
 
 class TodoCommand(sublime_plugin.TextCommand):
 
-    def search_paths(self, window, open_files_only=False):
+    def search_paths(self, window, paths=False, open_files_only=False):
         """Return (filepaths, dirpaths)"""
-        return (
-            [view.file_name() for view in window.views() if view.file_name()], 
-            window.folders() if not open_files_only else []
-        )
+        if paths:
+            return (
+                [],
+                paths
+            )
+        else:
+            return (
+                [view.file_name() for view in window.views() if view.file_name()],
+                window.folders() if not open_files_only else []
+            )
 
-    def run(self, edit, open_files_only=False):
+    def run(self, edit, paths=False, open_files_only=False):
         window = self.view.window()
         settings = Settings(self.view.settings().get('todo', {}))
 
 
         ## TODO: Cleanup this init code. Maybe move it to the settings object
-        filepaths, dirpaths = self.search_paths(window, open_files_only=open_files_only)
+        filepaths, dirpaths = self.search_paths(window, paths, open_files_only=open_files_only)
 
         ignored_dirs = settings.get('folder_exclude_patterns', [])
         ## Get exclude patterns from global settings
