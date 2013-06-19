@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 
 ## TODO: Implement TODO_IGNORE setting (http://mdeering.com/posts/004-get-your-textmate-todos-and-fixmes-under-control)
-## TODO: Make the output clickable (å la find results)
+## TODO: Make the output clickable (à la find results)
 ## TODO: Occasional NoneType bug
-## todo: Make the sections foldable (define them as regions?)
+## TODO: Make the sections foldable (define them as regions?)
 
 """"""
 
