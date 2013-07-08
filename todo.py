@@ -19,7 +19,7 @@ import threading
 
 import sublime
 import sublime_plugin
-
+from .Edit import Edit as Edit
 
 DEBUG = True
 
@@ -175,7 +175,7 @@ class TodoExtractor(object):
                 for linenum, line in enumerate(f):
                     for mo in patt.finditer(line):
                         ## Remove the non-matched groups
-                        matches = [Message(msg_type, msg) for msg_type, msg in mo.groupdict().iteritems() if msg]
+                        matches = [Message(msg_type, msg) for msg_type, msg in mo.groupdict().items() if msg]
                         for match in matches:
                             yield {'filepath': filepath, 'linenum': linenum + 1, 'match': match}
             except IOError:
@@ -202,7 +202,7 @@ class TodoRenderer(object):
     def header(self):
         hr = u'+ {0} +'.format('-' * 76)
         return u'{hr}\n| TODOS @ {0:<68} |\n| {1:<76} |\n{hr}\n'.format(
-            datetime.now().strftime('%A %d %B %Y %H:%M').decode("utf-8"),
+            datetime.now().strftime('%A %d %B %Y %H:%M'),
             u'{0} files scanned'.format(self.file_counter),
             hr=hr)
 
@@ -231,9 +231,9 @@ class TodoRenderer(object):
         for message_type, matches in groupby(messages, key=key_func):
             matches = list(matches)
             if matches:
-                yield ('header', u'\n## {0} ({1})'.format(message_type.upper().decode('utf8', 'ignore'), len(matches)), {})
+                yield ('header', u'\n## {0} ({1})'.format(message_type.upper(), len(matches)), {})
                 for idx, m in enumerate(matches, 1):
-                    msg = m['match'].msg.decode('utf8', 'ignore') ## Don't know the file encoding
+                    msg = m['match'].msg ## Don't know the file encoding
                     filepath = path.basename(m['filepath'])
                     line = u"{idx}. {filepath}:{linenum} {msg}".format(
                         idx=idx, filepath=filepath, linenum=m['linenum'], msg=msg)
@@ -243,26 +243,26 @@ class TodoRenderer(object):
         """This blocks the main thread, so make it quick"""
         ## Header
         result_view = self.view
-        edit = result_view.begin_edit()
-        result_view.erase(edit, sublime.Region(0, result_view.size()))
-        result_view.insert(edit, result_view.size(), self.header)
-        result_view.end_edit(edit)
+        # edit = result_view.begin_edit()
+        with Edit(result_view) as edit:
+            edit.erase(sublime.Region(0, result_view.size()))
+            edit.insert(result_view.size(), self.header)
 
         ## Region : match_dicts
         regions = {}
 
         ## Result sections
         for linetype, line, data in formatted_results:
-            edit = result_view.begin_edit()
-            insert_point = result_view.size()
-            result_view.insert(edit, insert_point, line)
-            if linetype == 'result':
-                rgn = sublime.Region(insert_point, result_view.size())
-                regions[rgn] = data
-            result_view.insert(edit, result_view.size(), u'\n')
-            result_view.end_edit(edit)
+            # edit = result_view.begin_edit()
+            with Edit(result_view) as edit:
+                insert_point = result_view.size()
+                edit.insert(insert_point, line)
+                if linetype == 'result':
+                    rgn = sublime.Region(insert_point, result_view.size())
+                    regions[(rgn.a, rgn.b)] = data
+                edit.insert(result_view.size(), u'\n')
 
-        result_view.add_regions('results', regions.keys(), '')
+        result_view.add_regions(result_view.id, 'results', list(regions.keys()), '', '', '')
 
         ## Store {Region : data} map in settings
         ## TODO: Abstract this out to a storage class Storage.get(region) ==> data dict
