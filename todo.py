@@ -30,6 +30,7 @@ DEFAULT_SETTINGS = {
         'TODO': r'TODO[\s]*?:+(?P<todo>.*)$',
         'NOTE': r'NOTE[\s]*?:+(?P<note>.*)$',
         'FIXME': r'FIX ?ME[\s]*?:+(?P<fixme>.*)$',
+        'XXX': r'XXX[\s]*?:+(?P<fixme>.*)$',
         'CHANGED': r'CHANGED[\s]*?:+(?P<changed>.*)$'
     },
 
