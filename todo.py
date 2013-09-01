@@ -110,7 +110,7 @@ class ThreadProgress(object):
 
 
 class TodoExtractor(object):
-    def __init__(self, settings, filepaths, dirpaths, ignored_dirs, ignored_file_patterns, 
+    def __init__(self, settings, filepaths, dirpaths, ignored_dirs, ignored_file_patterns,
                  file_counter):
         self.filepaths = filepaths
         self.dirpaths = dirpaths
@@ -170,7 +170,7 @@ class TodoExtractor(object):
         patt = re.compile(message_patterns, case_sensitivity)
         for filepath in self.search_targets():
             try:
-                f = open(filepath)
+                f = open(filepath, encoding='utf-8')
                 self.log.debug(u'Scanning {0}'.format(filepath))
                 for linenum, line in enumerate(f):
                     for mo in patt.finditer(line):
@@ -208,7 +208,7 @@ class TodoRenderer(object):
 
     @property
     def view(self):
-        existing_results = [v for v in self.window.views() 
+        existing_results = [v for v in self.window.views()
                             if v.name() == self.view_name and v.is_scratch()]
         if existing_results:
             v = existing_results[0]
@@ -220,9 +220,9 @@ class TodoRenderer(object):
         return v
 
     def format(self, messages):
-        """Yield lines for rendering into results view. Includes headers and 
+        """Yield lines for rendering into results view. Includes headers and
         blank lines.
-        Lines are returned in the form (type, content, [data]) where type is either 
+        Lines are returned in the form (type, content, [data]) where type is either
         'header', 'whitespace' or 'result'
         """
         key_func = lambda m: m['match'].type
@@ -250,7 +250,7 @@ class TodoRenderer(object):
 
         ## Region : match_dicts
         regions = {}
-
+        sregions = []
         ## Result sections
         for linetype, line, data in formatted_results:
             # edit = result_view.begin_edit()
@@ -259,16 +259,16 @@ class TodoRenderer(object):
                 edit.insert(insert_point, line)
                 if linetype == 'result':
                     rgn = sublime.Region(insert_point, result_view.size())
+                    sregions.append(rgn)
                     regions[(rgn.a, rgn.b)] = data
                 edit.insert(result_view.size(), u'\n')
-
-        result_view.add_regions(result_view.id, 'results', list(regions.keys()), '', '', '')
+        result_view.add_regions('results', sregions, str(result_view.id()))
 
         ## Store {Region : data} map in settings
         ## TODO: Abstract this out to a storage class Storage.get(region) ==> data dict
         ## Region() cannot be stored in settings, so convert to a primitive type
         # d_ = regions
-        d_ = dict(('{0},{1}'.format(k.a, k.b), v) for k, v in regions.iteritems())
+        d_ = dict(('{0}, {1}'.format(sublime.Region(k).a, sublime.Region(k).b), v) for k, v in regions.items())
         result_view.settings().set('result_regions', d_)
 
         ## Set syntax and settings
@@ -326,7 +326,7 @@ class TodoCommand(sublime_plugin.TextCommand):
     def search_paths(self, window, open_files_only=False):
         """Return (filepaths, dirpaths)"""
         return (
-            [view.file_name() for view in window.views() if view.file_name()], 
+            [view.file_name() for view in window.views() if view.file_name()],
             window.folders() if not open_files_only else []
         )
 
@@ -350,7 +350,7 @@ class TodoCommand(sublime_plugin.TextCommand):
         exclude_file_patterns = [fnmatch.translate(patt) for patt in exclude_file_patterns]
 
         file_counter = FileScanCounter()
-        extractor = TodoExtractor(settings, filepaths, dirpaths, ignored_dirs, 
+        extractor = TodoExtractor(settings, filepaths, dirpaths, ignored_dirs,
                                   exclude_file_patterns, file_counter)
         renderer = TodoRenderer(settings, window, file_counter)
 
@@ -406,9 +406,9 @@ class GotoComment(sublime_plugin.TextCommand):
         selection = int(self.view.settings().get('selected_result', -1))
         ## Get the region
         selected_region = self.view.get_regions('results')[selection]
-        ## Convert region to key used in result_regions (this is tedious, but 
+        ## Convert region to key used in result_regions (this is tedious, but
         ##    there is no other way to store regions with associated data)
-        data = self.view.settings().get('result_regions')['{0},{1}'.format(selected_region.a, selected_region.b)]
+        data = self.view.settings().get('result_regions')[str(selected_region)+ ', ' +str(selected_region)]
         self.log.debug(u'Goto comment at {filepath}:{linenum}'.format(**data))
         new_view = self.view.window().open_file(data['filepath'])
         do_when(lambda: not new_view.is_loading(), lambda: new_view.run_command("goto_line", {"line": data['linenum']}))
