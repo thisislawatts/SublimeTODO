@@ -170,7 +170,7 @@ class TodoExtractor(object):
         patt = re.compile(message_patterns, case_sensitivity)
         for filepath in self.search_targets():
             try:
-                f = open(filepath, encoding='utf-8')
+                f = open(filepath, encoding='utf-8', errors='ignore')
                 self.log.debug(u'Scanning {0}'.format(filepath))
                 for linenum, line in enumerate(f):
                     for mo in patt.finditer(line):
@@ -192,6 +192,7 @@ class TodoRenderer(object):
         self.window = window
         self.settings = settings
         self.file_counter = file_counter
+        self.log = logging.getLogger('SublimeTODO.Render')
 
     @property
     def view_name(self):
@@ -237,6 +238,7 @@ class TodoRenderer(object):
                     filepath = path.basename(m['filepath'])
                     line = u"{idx}. {filepath}:{linenum} {msg}".format(
                         idx=idx, filepath=filepath, linenum=m['linenum'], msg=msg)
+                    self.log.debug(line)
                     yield ('result', line, m)
 
     def render_to_view(self, formatted_results):
@@ -322,7 +324,6 @@ class FileScanCounter(object):
 
 
 class TodoCommand(sublime_plugin.TextCommand):
-
     def search_paths(self, window, open_files_only=False):
         """Return (filepaths, dirpaths)"""
         return (
@@ -337,7 +338,6 @@ class TodoCommand(sublime_plugin.TextCommand):
 
         ## TODO: Cleanup this init code. Maybe move it to the settings object
         filepaths, dirpaths = self.search_paths(window, open_files_only=open_files_only)
-
         ignored_dirs = settings.get('folder_exclude_patterns', [])
         ## Get exclude patterns from global settings
         ## Is there really no better way to access global settings?
@@ -365,24 +365,28 @@ class NavigateResults(sublime_plugin.TextCommand):
 
     def __init__(self, view):
         super(NavigateResults, self).__init__(view)
+        self.log = logging.getLogger('SublimeTODO.NavigateResults')
 
     def run(self, edit, direction):
         view = self.view
         settings = view.settings()
         results = self.view.get_regions('results')
+        self.log.debug(settings.get('selected_result'))
         if not results:
             sublime.status_message('No results to navigate')
             return
 
-        ##NOTE: numbers stored in settings are coerced to floats or longs
+
         selection = int(settings.get('selected_result', self.STARTING_POINT[direction]))
         selection = selection + self.DIRECTION[direction]
+        self.log.debug(selection)
         try:
             target = results[selection]
         except IndexError:
             target = results[0]
             selection = 0
 
+        self.log.debug(target)
         settings.set('selected_result', selection)
         ## Create a new region for highlighting
         target = target.cover(target)
