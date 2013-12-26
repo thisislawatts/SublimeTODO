@@ -19,7 +19,7 @@ import threading
 
 import sublime
 import sublime_plugin
-
+from .Edit import Edit as Edit
 
 DEBUG = True
 
@@ -111,7 +111,7 @@ class ThreadProgress(object):
 
 
 class TodoExtractor(object):
-    def __init__(self, settings, filepaths, dirpaths, ignored_dirs, ignored_file_patterns, 
+    def __init__(self, settings, filepaths, dirpaths, ignored_dirs, ignored_file_patterns,
                  file_counter):
         self.filepaths = filepaths
         self.dirpaths = dirpaths
@@ -171,12 +171,12 @@ class TodoExtractor(object):
         patt = re.compile(message_patterns, case_sensitivity)
         for filepath in self.search_targets():
             try:
-                f = open(filepath)
+                f = open(filepath, encoding='utf-8', errors='ignore')
                 self.log.debug(u'Scanning {0}'.format(filepath))
                 for linenum, line in enumerate(f):
                     for mo in patt.finditer(line):
                         ## Remove the non-matched groups
-                        matches = [Message(msg_type, msg) for msg_type, msg in mo.groupdict().iteritems() if msg]
+                        matches = [Message(msg_type, msg) for msg_type, msg in mo.groupdict().items() if msg]
                         for match in matches:
                             yield {'filepath': filepath, 'linenum': linenum + 1, 'match': match}
             except IOError:
@@ -193,6 +193,7 @@ class TodoRenderer(object):
         self.window = window
         self.settings = settings
         self.file_counter = file_counter
+        self.log = logging.getLogger('SublimeTODO.Render')
 
     @property
     def view_name(self):
@@ -203,13 +204,13 @@ class TodoRenderer(object):
     def header(self):
         hr = u'+ {0} +'.format('-' * 76)
         return u'{hr}\n| TODOS @ {0:<68} |\n| {1:<76} |\n{hr}\n'.format(
-            datetime.now().strftime('%A %d %B %Y %H:%M').decode("utf-8"),
+            datetime.now().strftime('%A %d %B %Y %H:%M'),
             u'{0} files scanned'.format(self.file_counter),
             hr=hr)
 
     @property
     def view(self):
-        existing_results = [v for v in self.window.views() 
+        existing_results = [v for v in self.window.views()
                             if v.name() == self.view_name and v.is_scratch()]
         if existing_results:
             v = existing_results[0]
@@ -221,9 +222,9 @@ class TodoRenderer(object):
         return v
 
     def format(self, messages):
-        """Yield lines for rendering into results view. Includes headers and 
+        """Yield lines for rendering into results view. Includes headers and
         blank lines.
-        Lines are returned in the form (type, content, [data]) where type is either 
+        Lines are returned in the form (type, content, [data]) where type is either
         'header', 'whitespace' or 'result'
         """
         key_func = lambda m: m['match'].type
@@ -232,44 +233,45 @@ class TodoRenderer(object):
         for message_type, matches in groupby(messages, key=key_func):
             matches = list(matches)
             if matches:
-                yield ('header', u'\n## {0} ({1})'.format(message_type.upper().decode('utf8', 'ignore'), len(matches)), {})
+                yield ('header', u'\n## {0} ({1})'.format(message_type.upper(), len(matches)), {})
                 for idx, m in enumerate(matches, 1):
-                    msg = m['match'].msg.decode('utf8', 'ignore') ## Don't know the file encoding
+                    msg = m['match'].msg ## Don't know the file encoding
                     filepath = path.basename(m['filepath'])
                     line = u"{idx}. {filepath}:{linenum} {msg}".format(
                         idx=idx, filepath=filepath, linenum=m['linenum'], msg=msg)
+                    self.log.debug(line)
                     yield ('result', line, m)
 
     def render_to_view(self, formatted_results):
         """This blocks the main thread, so make it quick"""
         ## Header
         result_view = self.view
-        edit = result_view.begin_edit()
-        result_view.erase(edit, sublime.Region(0, result_view.size()))
-        result_view.insert(edit, result_view.size(), self.header)
-        result_view.end_edit(edit)
+        # edit = result_view.begin_edit()
+        with Edit(result_view) as edit:
+            edit.erase(sublime.Region(0, result_view.size()))
+            edit.insert(result_view.size(), self.header)
 
         ## Region : match_dicts
         regions = {}
-
+        sregions = []
         ## Result sections
         for linetype, line, data in formatted_results:
-            edit = result_view.begin_edit()
-            insert_point = result_view.size()
-            result_view.insert(edit, insert_point, line)
-            if linetype == 'result':
-                rgn = sublime.Region(insert_point, result_view.size())
-                regions[rgn] = data
-            result_view.insert(edit, result_view.size(), u'\n')
-            result_view.end_edit(edit)
-
-        result_view.add_regions('results', regions.keys(), '')
+            # edit = result_view.begin_edit()
+            with Edit(result_view) as edit:
+                insert_point = result_view.size()
+                edit.insert(insert_point, line)
+                if linetype == 'result':
+                    rgn = sublime.Region(insert_point, result_view.size())
+                    sregions.append(rgn)
+                    regions[(rgn.a, rgn.b)] = data
+                edit.insert(result_view.size(), u'\n')
+        result_view.add_regions('results', sregions, str(result_view.id()))
 
         ## Store {Region : data} map in settings
         ## TODO: Abstract this out to a storage class Storage.get(region) ==> data dict
         ## Region() cannot be stored in settings, so convert to a primitive type
         # d_ = regions
-        d_ = dict(('{0},{1}'.format(k.a, k.b), v) for k, v in regions.iteritems())
+        d_ = dict(('{0}, {1}'.format(sublime.Region(k).a, sublime.Region(k).b), v) for k, v in regions.items())
         result_view.settings().set('result_regions', d_)
 
         ## Set syntax and settings
@@ -323,7 +325,6 @@ class FileScanCounter(object):
 
 
 class TodoCommand(sublime_plugin.TextCommand):
-
     def search_paths(self, window, paths=False, open_files_only=False):
         """Return (filepaths, dirpaths)"""
         if paths:
@@ -344,7 +345,6 @@ class TodoCommand(sublime_plugin.TextCommand):
 
         ## TODO: Cleanup this init code. Maybe move it to the settings object
         filepaths, dirpaths = self.search_paths(window, paths, open_files_only=open_files_only)
-
         ignored_dirs = settings.get('folder_exclude_patterns', [])
         ## Get exclude patterns from global settings
         ## Is there really no better way to access global settings?
@@ -357,7 +357,7 @@ class TodoCommand(sublime_plugin.TextCommand):
         exclude_file_patterns = [fnmatch.translate(patt) for patt in exclude_file_patterns]
 
         file_counter = FileScanCounter()
-        extractor = TodoExtractor(settings, filepaths, dirpaths, ignored_dirs, 
+        extractor = TodoExtractor(settings, filepaths, dirpaths, ignored_dirs,
                                   exclude_file_patterns, file_counter)
         renderer = TodoRenderer(settings, window, file_counter)
 
@@ -372,24 +372,28 @@ class NavigateResults(sublime_plugin.TextCommand):
 
     def __init__(self, view):
         super(NavigateResults, self).__init__(view)
+        self.log = logging.getLogger('SublimeTODO.NavigateResults')
 
     def run(self, edit, direction):
         view = self.view
         settings = view.settings()
         results = self.view.get_regions('results')
+        self.log.debug(settings.get('selected_result'))
         if not results:
             sublime.status_message('No results to navigate')
             return
 
-        ##NOTE: numbers stored in settings are coerced to floats or longs
+
         selection = int(settings.get('selected_result', self.STARTING_POINT[direction]))
         selection = selection + self.DIRECTION[direction]
+        self.log.debug(selection)
         try:
             target = results[selection]
         except IndexError:
             target = results[0]
             selection = 0
 
+        self.log.debug(target)
         settings.set('selected_result', selection)
         ## Create a new region for highlighting
         target = target.cover(target)
@@ -413,9 +417,9 @@ class GotoComment(sublime_plugin.TextCommand):
         selection = int(self.view.settings().get('selected_result', -1))
         ## Get the region
         selected_region = self.view.get_regions('results')[selection]
-        ## Convert region to key used in result_regions (this is tedious, but 
+        ## Convert region to key used in result_regions (this is tedious, but
         ##    there is no other way to store regions with associated data)
-        data = self.view.settings().get('result_regions')['{0},{1}'.format(selected_region.a, selected_region.b)]
+        data = self.view.settings().get('result_regions')[str(selected_region)+ ', ' +str(selected_region)]
         self.log.debug(u'Goto comment at {filepath}:{linenum}'.format(**data))
         new_view = self.view.window().open_file(data['filepath'])
         do_when(lambda: not new_view.is_loading(), lambda: new_view.run_command("goto_line", {"line": data['linenum']}))
