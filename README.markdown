@@ -1,6 +1,6 @@
 # Sublime TODOs
 
-A Sublime Text 2 plugin to extract and list TODO comments from open files and 
+A Sublime Text 2 plugin to extract and list TODO comments from open files and
 project folders.
 
 Take a look at [this screencast](http://webdesign.tutsplus.com/tutorials/applications/quick-tip-streamline-your-todo-lists-in-sublime-text-2/) (courtesy of Shannon Huffman) for an overview.
@@ -33,8 +33,8 @@ See an example user settings file [here](https://gist.github.com/2049887).
 
 ## Adding comment patterns
 
-Extraction uses regular expressions that return one match group 
-representing the message. Default patterns are provided for `TODO`, `NOTE`, `FIXME` 
+Extraction uses regular expressions that return one match group
+representing the message. Default patterns are provided for `TODO`, `NOTE`, `FIXME`
 and `CHANGED` comments.
 To override or provide more patterns, add `patterns` to user settings, e.g.
 
@@ -43,13 +43,14 @@ To override or provide more patterns, add `patterns` to user settings, e.g.
     "TODO": "TODO[\\s]*?:+(?P<todo>.*)$",
     "NOTE": "NOTE[\\s]*?:+(?P<note>.*)$",
     "FIXME": "FIX ?ME[\\s]*?:+(?P<fixme>\\S.*)$",
+    'XXX': r'XXX[\s]*?:+(?P<xxx>.*)$',
     "CHANGED": "CHANGED[\\s]*?:+(?P<changed>\\S.*)$"
 }
 ```
 
 Note that the pattern _must_ provide at least one named group which will be used to group the comments in results.
 
-By default, searching is not case sensitive. You can change this behaviour by adding 
+By default, searching is not case sensitive. You can change this behaviour by adding
 
     "case_sensitive": true
 
@@ -65,7 +66,7 @@ To exclude further directories, add directory names (not glob pattern or regexp)
 ```javascript
 "todo": {
     "folder_exclude_patterns": [
-        "vendor", 
+        "vendor",
         "tmp"
     ]
 }
