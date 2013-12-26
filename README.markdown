@@ -82,13 +82,15 @@ To add file excludes, add glob patterns to `file_exclude_patterns`:
 
 ## Included files and folders
 
-To search directories when running with the "Specified folders only" command, add directory names (not glob patterns or regexes) to `folder_include_patterns` in todo settings:
+To search directories when running with the "Specified folders only" command, add full directory path (not glob patterns or regexes) to `folder_include_patterns` in todo `project settings`:
 
 ```javascript
-"todo": {
-    "folder_include_patterns": [
-        "src/javascript"
-    ]
+"settings" : {
+    "todo": {
+        "folder_include_patterns": [
+            "/project/sublimetodo/src/javascript"
+        ]
+    }
 }
 ```
 
