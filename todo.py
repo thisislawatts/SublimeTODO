@@ -325,26 +325,32 @@ class FileScanCounter(object):
 
 
 class TodoCommand(sublime_plugin.TextCommand):
-    def search_paths(self, window, paths=False, open_files_only=False):
+    """
+    """
+    def search_paths(self, window, paths, open_files_only=False, included_dirs_only=False):
         """Return (filepaths, dirpaths)"""
         if paths:
-            return (
-                [],
-                paths
-            )
+            return ([], paths)
+        elif included_dirs_only:
+            window = self.view.window()
+            settings = Settings(self.view.settings().get('todo', {}))
+            included_dirs = settings.get('folder_include_patterns', []);
+            global_settings = sublime.load_settings('Global.sublime-settings')
+            included_dirs.extend(global_settings.get('folder_include_patterns', []))
+            return ([], included_dirs)
         else:
             return (
                 [view.file_name() for view in window.views() if view.file_name()],
                 window.folders() if not open_files_only else []
             )
 
-    def run(self, edit, paths=False, open_files_only=False):
+    def run(self, edit, paths=False, open_files_only=False, included_dirs_only=False):
         window = self.view.window()
         settings = Settings(self.view.settings().get('todo', {}))
 
 
         ## TODO: Cleanup this init code. Maybe move it to the settings object
-        filepaths, dirpaths = self.search_paths(window, paths, open_files_only=open_files_only)
+        filepaths, dirpaths = self.search_paths(window, paths, open_files_only=open_files_only, included_dirs_only=included_dirs_only)
         ignored_dirs = settings.get('folder_exclude_patterns', [])
         ## Get exclude patterns from global settings
         ## Is there really no better way to access global settings?
