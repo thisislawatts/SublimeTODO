@@ -317,6 +317,7 @@ class TodoCommand(sublime_plugin.TextCommand):
         ## Load settings files
         plugin_settings = sublime.load_settings('SublimeTODO.sublime-settings')
         global_settings = sublime.load_settings('Global.sublime-settings')
+        user_settings = sublime.load_settings('Preferences.sublime-settings').get('todo',[]);
 
         ## Prepare the settings required for renderer and extractor
         ## TODO: Consider moving this to an object that is maintained with on_change
@@ -326,13 +327,14 @@ class TodoCommand(sublime_plugin.TextCommand):
         settings['patterns'].update(plugin_settings.get('patterns'))
 
         settings['case_sensitive'] = 0 if plugin_settings.get('case_sensitive', False) else re.IGNORECASE
-        settings['ignored_dirs'] = plugin_settings.get('folder_exclude_patterns', [])
         settings['title'] = plugin_settings.get('result_title')
 
         ## File exclude patterns merged with binary file patterns
         exclude_file_patterns = plugin_settings.get('file_exclude_patterns', [])
         exclude_file_patterns.extend(global_settings.get('file_exclude_patterns', []))
         exclude_file_patterns.extend(global_settings.get('binary_file_patterns', []))
+        exclude_file_patterns.extend(user_settings.get('file_exclude_patterns', []))
+        exclude_file_patterns.extend(user_settings.get('binary_file_patterns', []))
         exclude_file_patterns = [fnmatch.translate(patt) for patt in exclude_file_patterns]
         settings['ignored_files'] = exclude_file_patterns
 
@@ -343,7 +345,9 @@ class TodoCommand(sublime_plugin.TextCommand):
         ## Is there really no better way to access global settings?
         global_settings = sublime.load_settings('Global.sublime-settings')
         ignored_dirs.extend(global_settings.get('folder_exclude_patterns', []))
-
+        ignored_dirs.extend(user_settings.get('folder_exclude_patterns', []))
+        settings['ignored_dirs'] = ignored_dirs
+        
         file_counter = FileScanCounter()
         settings['file_counter'] = file_counter
 
